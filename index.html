@@ -23,21 +23,21 @@
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg-page: #1a1a18;
-      --bg-card: #242422;
-      --bg-secondary: #2c2c2a;
-      --bg-info: #042c53;
-      --text-primary: #f1efe8;
-      --text-secondary: #b4b2a9;
-      --text-tertiary: #888780;
-      --text-info: #85b7eb;
-      --text-success: #97c459;
-      --text-danger: #f09595;
-      --border-tertiary: rgba(241,239,232,0.15);
-    }
+  html.dark-mode {
+    --bg-page: #1a1a18;
+    --bg-card: #242422;
+    --bg-secondary: #2c2c2a;
+    --bg-info: #042c53;
+    --text-primary: #f1efe8;
+    --text-secondary: #b4b2a9;
+    --text-tertiary: #888780;
+    --text-info: #85b7eb;
+    --text-success: #97c459;
+    --text-danger: #f09595;
+    --border-tertiary: rgba(241,239,232,0.15);
   }
+
+  body { transition: background 0.2s ease, color 0.2s ease; }
 
   * { box-sizing: border-box; }
 
@@ -259,6 +259,35 @@
     margin-top: 1.5rem;
   }
   footer a { color: var(--text-info); text-decoration: none; }
+
+  #music-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1rem;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-md);
+  }
+
+  #music-bar button {
+    border: none;
+    background: transparent;
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+  }
+  #music-bar button:hover { background: var(--bg-card); }
+  #music-bar i { font-size: 18px; }
+
+  #now-playing {
+    flex: 1;
+    font-size: 13px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 </style>
 </head>
 <body>
@@ -269,9 +298,17 @@
   <div class="topbar">
     <p>Score: <span id="score">0</span> / <span id="total">0</span> &nbsp;&middot;&nbsp; Pool: <span id="pool-size"></span></p>
     <div class="topbar-actions">
+      <button id="theme-btn" aria-label="Toggle night mode"><i id="theme-icon" class="ti ti-moon" aria-hidden="true"></i></button>
       <button id="unit-btn"><i class="ti ti-arrows-exchange" aria-hidden="true"></i> <span id="unit-label">Metric</span></button>
       <button id="skip-btn">Skip <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
     </div>
+  </div>
+
+  <div id="music-bar">
+    <button id="music-toggle-btn" aria-label="Play or pause music"><i id="music-toggle-icon" class="ti ti-player-play" aria-hidden="true"></i></button>
+    <button id="music-skip-btn" aria-label="Skip to next track"><i class="ti ti-player-track-next" aria-hidden="true"></i></button>
+    <span id="now-playing">Music off</span>
+    <button id="music-mute-btn" aria-label="Mute or unmute music"><i id="music-mute-icon" class="ti ti-volume" aria-hidden="true"></i></button>
   </div>
 
   <div class="card">
@@ -439,6 +476,128 @@ let timerInterval = null;
 const TIME_LIMIT = 15;
 
 document.getElementById("pool-size").textContent = DEX.length;
+
+function applyTheme(isDark){
+  document.documentElement.classList.toggle("dark-mode", isDark);
+  document.getElementById("theme-icon").className = isDark ? "ti ti-sun" : "ti ti-moon";
+  localStorage.setItem("pokeguesser-theme", isDark ? "dark" : "light");
+}
+
+(function initTheme(){
+  const saved = localStorage.getItem("pokeguesser-theme");
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(saved ? saved === "dark" : prefersDark);
+})();
+
+document.getElementById("theme-btn").addEventListener("click", function(){
+  applyTheme(!document.documentElement.classList.contains("dark-mode"));
+});
+
+const TRACKS = [
+  { name: "Retro Route Loop (Gen 1 style)", notes: [
+    ["E4",2],["G4",2],["B4",2],["E5",2],["D5",2],["B4",2],["G4",2],["D4",2],
+    ["E4",2],["G4",2],["B4",2],["E5",2],["C5",2],["B4",2],["G4",2],["G3",2]
+  ]},
+  { name: "8-Bit Town Theme (Gen 2 style)", notes: [
+    ["C4",1],["E4",1],["G4",1],["C5",1],["G4",1],["E4",1],["A4",2],
+    ["F4",1],["A4",1],["C5",1],["F5",1],["C5",1],["A4",1],["G4",2]
+  ]},
+  { name: "Chiptune Cave Loop (Gen 3 style)", notes: [
+    ["A3",2],["C4",2],["E4",2],["A4",2],["G4",2],["E4",2],["C4",2],["A3",2],
+    ["B3",2],["D4",2],["F4",2],["B4",2],["A4",2],["F4",2],["D4",2],["B3",2]
+  ]}
+];
+
+const NOTE_FREQS = { C3:130.81, D3:146.83, E3:164.81, F3:174.61, G3:196.00, A3:220.00, B3:246.94,
+  C4:261.63, D4:293.66, E4:329.63, F4:349.23, G4:392.00, A4:440.00, B4:493.88,
+  C5:523.25, D5:587.33, E5:659.25, F5:698.46, G5:783.99, A5:880.00, B5:987.77 };
+
+let audioCtx = null;
+let musicGain = null;
+let isPlaying = false;
+let isMuted = false;
+let trackIndex = 0;
+let stepTimer = null;
+
+function ensureAudioCtx(){
+  if (!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    musicGain = audioCtx.createGain();
+    musicGain.gain.value = isMuted ? 0 : 0.18;
+    musicGain.connect(audioCtx.destination);
+  }
+}
+
+function playStep(noteName, beats, stepDurationSec){
+  if (!audioCtx) return;
+  const freq = NOTE_FREQS[noteName];
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "square";
+  osc.frequency.value = freq;
+  const dur = beats * stepDurationSec;
+  gain.gain.setValueAtTime(0.9, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur * 0.9);
+  osc.connect(gain);
+  gain.connect(musicGain);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+
+function scheduleTrack(){
+  const track = TRACKS[trackIndex];
+  const stepDurationSec = 0.18;
+  let i = 0;
+  document.getElementById("now-playing").textContent = "Now playing: " + track.name;
+  function step(){
+    if (!isPlaying) return;
+    const [noteName, beats] = track.notes[i % track.notes.length];
+    playStep(noteName, beats, stepDurationSec);
+    i++;
+    stepTimer = setTimeout(step, beats * stepDurationSec * 1000);
+  }
+  step();
+}
+
+function stopTrack(){
+  if (stepTimer){
+    clearTimeout(stepTimer);
+    stepTimer = null;
+  }
+}
+
+function startMusic(){
+  ensureAudioCtx();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  isPlaying = true;
+  document.getElementById("music-toggle-icon").className = "ti ti-player-pause";
+  scheduleTrack();
+}
+
+function pauseMusic(){
+  isPlaying = false;
+  stopTrack();
+  document.getElementById("music-toggle-icon").className = "ti ti-player-play";
+  document.getElementById("now-playing").textContent = "Music off";
+}
+
+document.getElementById("music-toggle-btn").addEventListener("click", function(){
+  if (isPlaying) pauseMusic(); else startMusic();
+});
+
+document.getElementById("music-skip-btn").addEventListener("click", function(){
+  trackIndex = (trackIndex + 1) % TRACKS.length;
+  if (isPlaying){
+    stopTrack();
+    scheduleTrack();
+  }
+});
+
+document.getElementById("music-mute-btn").addEventListener("click", function(){
+  isMuted = !isMuted;
+  if (musicGain) musicGain.gain.value = isMuted ? 0 : 0.18;
+  document.getElementById("music-mute-icon").className = isMuted ? "ti ti-volume-3" : "ti ti-volume";
+});
 
 function spriteUrl(p){
   return "https://cdn.jsdelivr.net/gh/PokeAPI/sprites@master/sprites/pokemon/other/official-artwork/" + p.id + ".png";
