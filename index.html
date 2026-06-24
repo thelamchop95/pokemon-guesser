@@ -184,22 +184,42 @@
     font-style: italic;
   }
 
-  #hint-row {
-    display: none;
+  #timer-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     margin-bottom: 1rem;
-    gap: 6px;
-    flex-wrap: wrap;
   }
 
-  #hint-text {
-    font-size: 12px;
-    padding: 4px 12px;
-    border-radius: var(--border-radius-md);
-    background: var(--bg-info);
-    color: var(--text-info);
+  #timer-bar-track {
+    flex: 1;
+    height: 6px;
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+  }
+
+  #timer-bar-fill {
+    height: 100%;
+    width: 100%;
+    background: var(--text-info);
+    border-radius: 4px;
+    transition: width 1s linear, background 0.3s ease;
+  }
+
+  #timer-value {
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 28px;
+    text-align: right;
   }
 
   #guess-form { display: flex; gap: 8px; }
+
+  #guess-input:disabled, #guess-form button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 
   #guess-input {
     flex: 1;
@@ -244,7 +264,7 @@
 <body>
 <div class="wrap">
   <h1>Who's that Pokemon?</h1>
-  <h2 class="sr-only">A Pokemon guessing game. Read the height, weight, and Pokedex entry, then type a guess. The Pokemon's image is hidden until you answer correctly or run out of guesses. Pool spans Generations 1 through 9.</h2>
+  <h2 class="sr-only">A Pokemon guessing game. Read the height, weight, and Pokedex entry, then type a guess before the 15 second timer runs out. You get one guess per Pokemon. The image is hidden until you answer or time runs out. Pool spans Generations 1 through 9.</h2>
 
   <div class="topbar">
     <p>Score: <span id="score">0</span> / <span id="total">0</span> &nbsp;&middot;&nbsp; Pool: <span id="pool-size"></span></p>
@@ -279,8 +299,10 @@
       <p id="dex-entry">Loading...</p>
     </div>
 
-    <div id="hint-row">
-      <span id="hint-text"></span>
+    <div id="timer-row">
+      <i class="ti ti-clock" aria-hidden="true"></i>
+      <div id="timer-bar-track"><div id="timer-bar-fill"></div></div>
+      <span id="timer-value">15s</span>
     </div>
 
     <form id="guess-form">
@@ -409,8 +431,12 @@ const DEX = [
 ];
 
 let current = null;
-let score = 0, total = 0, wrongCount = 0;
+let score = 0, total = 0;
 let unit = "metric";
+let answered = false;
+let timeLeft = 0;
+let timerInterval = null;
+const TIME_LIMIT = 15;
 
 document.getElementById("pool-size").textContent = DEX.length;
 
@@ -450,9 +476,60 @@ function reveal(){
   nameEl.style.opacity = "1";
 }
 
+function updateTimerDisplay(){
+  document.getElementById("timer-value").textContent = timeLeft + "s";
+  const fill = document.getElementById("timer-bar-fill");
+  fill.style.width = (timeLeft / TIME_LIMIT * 100) + "%";
+  fill.style.background = timeLeft <= 5 ? "var(--text-danger)" : "var(--text-info)";
+}
+
+function stopTimer(){
+  if (timerInterval){
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function startTimer(){
+  timeLeft = TIME_LIMIT;
+  updateTimerDisplay();
+  stopTimer();
+  timerInterval = setInterval(function(){
+    timeLeft--;
+    updateTimerDisplay();
+    if (timeLeft <= 0){
+      stopTimer();
+      handleTimeout();
+    }
+  }, 1000);
+}
+
+function lockInput(){
+  document.getElementById("guess-input").disabled = true;
+  document.querySelector("#guess-form button").disabled = true;
+}
+
+function unlockInput(){
+  document.getElementById("guess-input").disabled = false;
+  document.querySelector("#guess-form button").disabled = false;
+}
+
+function handleTimeout(){
+  if (answered) return;
+  answered = true;
+  total++;
+  document.getElementById("total").textContent = total;
+  const feedback = document.getElementById("feedback");
+  feedback.style.color = "var(--text-danger)";
+  feedback.textContent = "Time's up! The answer was " + current.name + ".";
+  lockInput();
+  reveal();
+  setTimeout(pickPokemon, 2200);
+}
+
 function pickPokemon(){
   current = DEX[Math.floor(Math.random()*DEX.length)];
-  wrongCount = 0;
+  answered = false;
   refreshStats();
   const img = document.getElementById("poke-img");
   img.src = spriteUrl(current);
@@ -464,53 +541,43 @@ function pickPokemon(){
   nameEl.textContent = " ";
   nameEl.style.opacity = "0";
   document.getElementById("dex-entry").textContent = current.entry;
-  document.getElementById("hint-row").style.display = "none";
   document.getElementById("feedback").textContent = "";
   document.getElementById("feedback").style.color = "var(--text-secondary)";
   document.getElementById("guess-input").value = "";
+  unlockInput();
+  document.getElementById("guess-input").focus();
+  startTimer();
 }
 
 function normalize(s){ return s.trim().toLowerCase(); }
 
 document.getElementById("guess-form").addEventListener("submit", function(e){
   e.preventDefault();
+  if (answered) return;
   const input = document.getElementById("guess-input");
   const guess = normalize(input.value);
   const feedback = document.getElementById("feedback");
   if (!guess) return;
+  answered = true;
+  stopTimer();
+  lockInput();
+  total++;
+  document.getElementById("total").textContent = total;
   if (guess === normalize(current.name)){
     score++;
-    total++;
     document.getElementById("score").textContent = score;
-    document.getElementById("total").textContent = total;
     feedback.style.color = "var(--text-success)";
     feedback.textContent = "Correct! It's " + current.name + ".";
-    reveal();
-    setTimeout(pickPokemon, 1800);
   } else {
-    wrongCount++;
     feedback.style.color = "var(--text-danger)";
-    feedback.textContent = "Not quite, try again.";
-    const hintRow = document.getElementById("hint-row");
-    const hintText = document.getElementById("hint-text");
-    if (wrongCount === 1){
-      hintRow.style.display = "flex";
-      hintText.textContent = "Type: " + current.type;
-    } else if (wrongCount === 2){
-      hintText.textContent = "Type: " + current.type + " | Gen " + current.gen;
-    } else if (wrongCount >= 3){
-      total++;
-      document.getElementById("total").textContent = total;
-      feedback.textContent = "The answer was " + current.name + ".";
-      reveal();
-      setTimeout(pickPokemon, 2200);
-    }
+    feedback.textContent = "Not quite. The answer was " + current.name + ".";
   }
-  input.value = "";
-  input.focus();
+  reveal();
+  setTimeout(pickPokemon, 2000);
 });
 
 document.getElementById("skip-btn").addEventListener("click", function(){
+  stopTimer();
   pickPokemon();
 });
 
