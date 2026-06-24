@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Who's That Pokemon? - Stat Guesser</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+<style>
+  :root {
+    --bg-page: #f1efe8;
+    --bg-card: #ffffff;
+    --bg-secondary: #f1efe8;
+    --bg-info: #e6f1fb;
+    --text-primary: #2c2c2a;
+    --text-secondary: #5f5e5a;
+    --text-tertiary: #888780;
+    --text-info: #0c447c;
+    --text-success: #27500a;
+    --text-danger: #791f1f;
+    --border-tertiary: rgba(44,44,42,0.15);
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-page: #1a1a18;
+      --bg-card: #242422;
+      --bg-secondary: #2c2c2a;
+      --bg-info: #042c53;
+      --text-primary: #f1efe8;
+      --text-secondary: #b4b2a9;
+      --text-tertiary: #888780;
+      --text-info: #85b7eb;
+      --text-success: #97c459;
+      --text-danger: #f09595;
+      --border-tertiary: rgba(241,239,232,0.15);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg-page);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 2rem 1rem;
+    display: flex;
+    justify-content: center;
+  }
+
+  .wrap { width: 100%; max-width: 480px; }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 500;
+    text-align: center;
+    margin: 0 0 1.5rem;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .topbar p { font-size: 14px; color: var(--text-secondary); margin: 0; }
+  .topbar p span { font-weight: 500; color: var(--text-primary); }
+  .topbar-actions { display: flex; gap: 8px; }
+
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    background: transparent;
+    border: 0.5px solid var(--border-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 6px 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }
+  button:hover { background: var(--bg-secondary); }
+  button:active { transform: scale(0.98); }
+
+  .card {
+    background: var(--bg-card);
+    border: 0.5px solid var(--border-tertiary);
+    border-radius: var(--border-radius-lg);
+    padding: 1.25rem;
+  }
+
+  .stage-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .stage {
+    width: 180px;
+    height: 180px;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+
+  .stage i { font-size: 48px; color: var(--text-tertiary); }
+
+  .stage img {
+    display: none;
+    width: 150px;
+    height: 150px;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  #poke-name {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 0;
+    min-height: 24px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+    gap: 12px;
+    margin-bottom: 1rem;
+  }
+
+  .stat-box {
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius-md);
+    padding: 0.75rem 1rem;
+  }
+
+  .stat-box p:first-child {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 4px;
+  }
+
+  .stat-box p:last-child {
+    font-size: 20px;
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .dex-section {
+    border-top: 0.5px solid var(--border-tertiary);
+    padding-top: 12px;
+    margin-bottom: 1rem;
+  }
+
+  .dex-section p:first-child {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0 0 6px;
+  }
+
+  #dex-entry {
+    font-size: 15px;
+    margin: 0;
+    line-height: 1.7;
+    font-style: italic;
+  }
+
+  #hint-row {
+    display: none;
+    margin-bottom: 1rem;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  #hint-text {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: var(--border-radius-md);
+    background: var(--bg-info);
+    color: var(--text-info);
+  }
+
+  #guess-form { display: flex; gap: 8px; }
+
+  #guess-input {
+    flex: 1;
+    font-family: inherit;
+    font-size: 14px;
+    height: 36px;
+    padding: 0 12px;
+    border: 0.5px solid var(--border-tertiary);
+    border-radius: var(--border-radius-md);
+    background: var(--bg-card);
+    color: var(--text-primary);
+  }
+  #guess-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--text-info);
+  }
+
+  #guess-form button {
+    height: 36px;
+    background: var(--text-primary);
+    color: var(--bg-card);
+    border: none;
+  }
+  #guess-form button:hover { opacity: 0.85; }
+
+  #feedback {
+    font-size: 14px;
+    margin: 10px 0 0;
+    min-height: 20px;
+    color: var(--text-secondary);
+  }
+
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-top: 1.5rem;
+  }
+  footer a { color: var(--text-info); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Who's that Pokemon?</h1>
+  <h2 class="sr-only">A Pokemon guessing game. Read the height, weight, and Pokedex entry, then type a guess. The Pokemon's image is hidden until you answer correctly or run out of guesses. Pool spans Generations 1 through 9.</h2>
+
+  <div class="topbar">
+    <p>Score: <span id="score">0</span> / <span id="total">0</span> &nbsp;&middot;&nbsp; Pool: <span id="pool-size"></span></p>
+    <div class="topbar-actions">
+      <button id="unit-btn"><i class="ti ti-arrows-exchange" aria-hidden="true"></i> <span id="unit-label">Metric</span></button>
+      <button id="skip-btn">Skip <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="stage-wrap">
+      <div class="stage">
+        <i id="poke-placeholder" class="ti ti-question-mark" aria-hidden="true"></i>
+        <img id="poke-img" src="" alt="Revealed Pokemon" />
+      </div>
+      <p id="poke-name">&nbsp;</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-box">
+        <p><i class="ti ti-ruler-2" aria-hidden="true"></i> Height</p>
+        <p id="stat-height">-</p>
+      </div>
+      <div class="stat-box">
+        <p><i class="ti ti-weight" aria-hidden="true"></i> Weight</p>
+        <p id="stat-weight">-</p>
+      </div>
+    </div>
+
+    <div class="dex-section">
+      <p><i class="ti ti-book" aria-hidden="true"></i> Pokedex entry</p>
+      <p id="dex-entry">Loading...</p>
+    </div>
+
+    <div id="hint-row">
+      <span id="hint-text"></span>
+    </div>
+
+    <form id="guess-form">
+      <input id="guess-input" type="text" placeholder="Who's that Pokemon?" autocomplete="off" />
+      <button type="submit"><i class="ti ti-check" aria-hidden="true"></i> Guess</button>
+    </form>
+
+    <p id="feedback"></p>
+  </div>
+
+  <footer>Sprites courtesy of <a href="https://github.com/PokeAPI/sprites" target="_blank" rel="noopener">PokeAPI</a></footer>
+</div>
+
+<script>
+const DEX = [
+{id:1,name:"Bulbasaur",heightM:0.7,weightKg:6.9,type:"Grass / Poison",gen:1,entry:"A strange seed was planted on its back at birth. The plant sprouts and grows with this Pokemon."},
+{id:6,name:"Charizard",heightM:1.7,weightKg:90.5,type:"Fire / Flying",gen:1,entry:"It spits fire hot enough to melt boulders. It may cause forest fires by blowing flames."},
+{id:7,name:"Squirtle",heightM:0.5,weightKg:9.0,type:"Water",gen:1,entry:"After birth, its back swells and hardens into a shell. It sprays a potent foam from its mouth."},
+{id:25,name:"Pikachu",heightM:0.4,weightKg:6.0,type:"Electric",gen:1,entry:"When several of these Pokemon gather, their electricity can build and cause lightning storms."},
+{id:26,name:"Raichu",heightM:0.8,weightKg:30.0,type:"Electric",gen:1,entry:"Its long tail serves as a ground to protect itself from its own high-voltage power."},
+{id:45,name:"Vileplume",heightM:1.2,weightKg:18.6,type:"Grass / Poison",gen:1,entry:"The larger its petals, the more toxic pollen it contains. Its big head is heavy and hard to hold up."},
+{id:94,name:"Gengar",heightM:1.5,weightKg:40.5,type:"Ghost / Poison",gen:1,entry:"On a night with a full moon, if shadows move on their own and laugh, it must be this Pokemon."},
+{id:95,name:"Onix",heightM:8.8,weightKg:210.0,type:"Rock / Ground",gen:1,entry:"As it grows, the stone portions of its body harden to become similar to a diamond, but colored black."},
+{id:97,name:"Hypno",heightM:1.6,weightKg:75.6,type:"Psychic",gen:1,entry:"When it locks eyes with an enemy, it will use a mix of psi moves like Hypnosis and Confusion."},
+{id:101,name:"Electrode",heightM:1.2,weightKg:66.6,type:"Electric",gen:1,entry:"It stores electric energy under very high pressure. It often explodes with little or no provocation."},
+{id:143,name:"Snorlax",heightM:2.1,weightKg:460.0,type:"Normal",gen:1,entry:"Very lazy. It just eats and sleeps. As its rotund bulk builds, it becomes steadily more slothful."},
+{id:149,name:"Dragonite",heightM:2.2,weightKg:210.0,type:"Dragon / Flying",gen:1,entry:"An extremely rarely seen marine Pokemon. Its intelligence is said to match that of humans."},
+{id:150,name:"Mewtwo",heightM:2.0,weightKg:122.0,type:"Psychic",gen:1,entry:"It was created by a scientist after years of horrific gene-splicing and DNA-engineering experiments."},
+{id:151,name:"Mew",heightM:0.4,weightKg:4.0,type:"Psychic",gen:1,entry:"So rare that it is still said to be a mirage by many experts. Only a few people have seen it worldwide."},
+{id:39,name:"Jigglypuff",heightM:0.5,weightKg:5.5,type:"Normal / Fairy",gen:1,entry:"When its huge eyes light up, it sings a mysteriously soothing melody that lulls its enemies to sleep."},
+{id:130,name:"Gyarados",heightM:6.5,weightKg:235.0,type:"Water / Flying",gen:1,entry:"Once it begins to rampage, it will burn everything down, even in a sea of fire, until it calms down."},
+{id:131,name:"Lapras",heightM:2.5,weightKg:220.0,type:"Water / Ice",gen:1,entry:"A Pokemon that has been overhunted almost to extinction. It can ferry people across the water."},
+{id:133,name:"Eevee",heightM:0.3,weightKg:6.5,type:"Normal",gen:1,entry:"Its genetic code is irregular. It may mutate if it absorbs special radiation from element stones."},
+{id:65,name:"Alakazam",heightM:1.5,weightKg:48.0,type:"Psychic",gen:1,entry:"Its brain can outperform a supercomputer. Its IQ is said to be around 5,000."},
+{id:68,name:"Machamp",heightM:1.6,weightKg:130.0,type:"Fighting",gen:1,entry:"Using its heavy muscles, it throws powerful punches that can send the victim clear over the horizon."},
+{id:59,name:"Arcanine",heightM:1.9,weightKg:155.0,type:"Fire",gen:1,entry:"A Pokemon that has been admired since the past for its beauty. It runs agilely as if on wings."},
+{id:144,name:"Articuno",heightM:1.7,weightKg:55.4,type:"Ice / Flying",gen:1,entry:"It is said that anyone who sees this legendary bird Pokemon flying is blessed with happiness."},
+{id:152,name:"Chikorita",heightM:0.9,weightKg:6.4,type:"Grass",gen:2,entry:"Its leaf wilts if it is thirsty. The leaf gives off a slightly sweet aroma when nourished."},
+{id:181,name:"Ampharos",heightM:1.4,weightKg:61.5,type:"Electric",gen:2,entry:"Its tail shines brightly. From a distance, people in the past mistook the tail's light for a fire."},
+{id:196,name:"Espeon",heightM:0.9,weightKg:26.5,type:"Psychic",gen:2,entry:"It senses things using the fine fur covering its body. It evolved as a result of basking in sunlight."},
+{id:197,name:"Umbreon",heightM:1.0,weightKg:27.0,type:"Dark",gen:2,entry:"When agitated, this Pokemon protects itself by spraying poisonous sweat from its pores."},
+{id:208,name:"Steelix",heightM:9.2,weightKg:400.0,type:"Steel / Ground",gen:2,entry:"It burrows through the ground at high speed by spinning its long, thin body."},
+{id:212,name:"Scizor",heightM:1.8,weightKg:118.0,type:"Bug / Steel",gen:2,entry:"Its pincers are not for grabbing prey, but to intimidate the opponent into freezing on the spot."},
+{id:214,name:"Heracross",heightM:1.5,weightKg:54.0,type:"Bug / Fighting",gen:2,entry:"With its prized horn, it lifts and flings around anything in its path. It loves to drink tree sap."},
+{id:229,name:"Houndoom",heightM:1.4,weightKg:35.0,type:"Dark / Fire",gen:2,entry:"The sight of its bizarrely shaped horns and the sound of its baying made ancient people fear it."},
+{id:248,name:"Tyranitar",heightM:2.0,weightKg:202.0,type:"Rock / Dark",gen:2,entry:"It is said this Pokemon's body armor becomes harder the more it eats, and it can topple a mountain."},
+{id:249,name:"Lugia",heightM:5.2,weightKg:216.0,type:"Psychic / Flying",gen:2,entry:"It is said to be the guardian of the seas, and to have the power to calm raging storms."},
+{id:250,name:"Ho-Oh",heightM:3.8,weightKg:199.0,type:"Fire / Flying",gen:2,entry:"Its feathers glow in seven colors depending on the angle from which they are viewed."},
+{id:251,name:"Celebi",heightM:0.6,weightKg:5.0,type:"Psychic / Grass",gen:2,entry:"Said to have come from the future, this Pokemon wanders across time, bringing happiness."},
+{id:227,name:"Skarmory",heightM:1.7,weightKg:50.5,type:"Steel / Flying",gen:2,entry:"Skarmory's wings are composed of sharply pointed steel plates that can slice through thick logs."},
+{id:252,name:"Treecko",heightM:0.5,weightKg:5.0,type:"Grass",gen:3,entry:"Treecko has small hooks on the bottom of its feet that enable it to scale vertical walls."},
+{id:282,name:"Gardevoir",heightM:1.6,weightKg:48.4,type:"Psychic / Fairy",gen:3,entry:"It can read minds and predict the future using its psychic powers, born to protect its Trainer."},
+{id:286,name:"Breloom",heightM:1.2,weightKg:39.2,type:"Grass / Fighting",gen:3,entry:"Its punches lash out as quick as a jab from a boxing champ. The spores it releases are toxic."},
+{id:289,name:"Slaking",heightM:2.0,weightKg:130.5,type:"Normal",gen:3,entry:"Slaking lazes around and laments wasted time, but only after the day is through."},
+{id:306,name:"Aggron",heightM:2.1,weightKg:360.0,type:"Steel / Rock",gen:3,entry:"It viciously attacks anyone who dares to enter its territory. It repairs its steel body with mud."},
+{id:330,name:"Flygon",heightM:2.0,weightKg:82.0,type:"Ground / Dragon",gen:3,entry:"The wings produce a sound that is said to sound like the singing of a beautiful flute."},
+{id:373,name:"Salamence",heightM:1.5,weightKg:102.6,type:"Dragon / Flying",gen:3,entry:"It is said to have finally gained wings to fulfill its dream of soaring through the sky."},
+{id:376,name:"Metagross",heightM:1.6,weightKg:550.0,type:"Steel / Psychic",gen:3,entry:"It has four brains in total, giving it intelligence surpassing that of a supercomputer."},
+{id:384,name:"Rayquaza",heightM:7.0,weightKg:206.5,type:"Dragon / Flying",gen:3,entry:"Said to have lived for hundreds of millions of years in the ozone layer high above the clouds."},
+{id:382,name:"Kyogre",heightM:4.5,weightKg:352.0,type:"Water",gen:3,entry:"In ancient seas, it created moisture-laden clouds with seawater and brought heavy rain."},
+{id:383,name:"Groudon",heightM:3.5,weightKg:950.0,type:"Ground",gen:3,entry:"It is said to have made the continents by raising land out of the sea, a long, long time ago."},
+{id:359,name:"Absol",heightM:1.2,weightKg:47.0,type:"Dark",gen:3,entry:"It has the ability to foretell the occurrence of a natural disaster, but it is misunderstood as a doom-bringer."},
+{id:350,name:"Milotic",heightM:6.2,weightKg:162.0,type:"Water",gen:3,entry:"It is said to be the most beautiful of all Pokemon. It has been described as graceful and elegant."},
+{id:387,name:"Turtwig",heightM:0.4,weightKg:10.2,type:"Grass",gen:4,entry:"The shell that covers its back is made of soil hardened by its own constant nutrition."},
+{id:448,name:"Lucario",heightM:1.2,weightKg:54.0,type:"Fighting / Steel",gen:4,entry:"It can use its aura to sense the emotions of others, and even see what they're thinking."},
+{id:445,name:"Garchomp",heightM:1.9,weightKg:95.0,type:"Dragon / Ground",gen:4,entry:"Its body is covered in scales that reduce drag, enabling it to fly at speeds equal to a jet fighter."},
+{id:409,name:"Rampardos",heightM:1.6,weightKg:102.5,type:"Rock",gen:4,entry:"Its powerful head can topple a building. Many fossils with cracked skulls have been found."},
+{id:475,name:"Gallade",heightM:1.6,weightKg:52.0,type:"Psychic / Fighting",gen:4,entry:"Its elbows house blades made of psychic energy that can cut through thick steel sheets with ease."},
+{id:461,name:"Weavile",heightM:1.1,weightKg:34.0,type:"Dark / Ice",gen:4,entry:"It claws marks into trees to mark its territory. It works in groups to take down its prey."},
+{id:462,name:"Magnezone",heightM:1.2,weightKg:180.0,type:"Electric / Steel",gen:4,entry:"It is thought that this Pokemon emits radio waves from the magnet on its head to communicate."},
+{id:464,name:"Rhyperior",heightM:2.4,weightKg:282.8,type:"Ground / Rock",gen:4,entry:"Its arms can fuse to form a giant cannon, which it uses to fire boulders at its enemies."},
+{id:466,name:"Electivire",heightM:1.8,weightKg:138.6,type:"Electric",gen:4,entry:"It is said that when two of these Pokemon meet, they will spark each other and start fighting."},
+{id:470,name:"Leafeon",heightM:1.0,weightKg:25.5,type:"Grass",gen:4,entry:"Surrounding itself with plant life, it can photosynthesize, making the air around it fresher."},
+{id:471,name:"Glaceon",heightM:0.8,weightKg:25.9,type:"Ice",gen:4,entry:"It can control its body temperature freely, allowing it to freeze the hair on its body and fire it like needles."},
+{id:473,name:"Mamoswine",heightM:2.5,weightKg:291.0,type:"Ice / Ground",gen:4,entry:"In ancient times, people believed that this Pokemon's appearance signaled the coming of winter."},
+{id:487,name:"Giratina",heightM:4.5,weightKg:750.0,type:"Ghost / Dragon",gen:4,entry:"This Pokemon is said to live in a world on the reverse side of ours, where common sense is distorted."},
+{id:483,name:"Dialga",heightM:5.4,weightKg:683.0,type:"Steel / Dragon",gen:4,entry:"It is said to be a deity that emerged from a distortion in time, and it can control time itself."},
+{id:491,name:"Darkrai",heightM:1.5,weightKg:50.5,type:"Dark",gen:4,entry:"On nights with no moon, this Pokemon appears, and it leaves nightmares for those it sees."},
+{id:497,name:"Serperior",heightM:3.3,weightKg:63.0,type:"Grass",gen:5,entry:"It can stop its opponents' movements with just a glare, having stared down its prey for generations."},
+{id:571,name:"Zoroark",heightM:1.6,weightKg:81.1,type:"Dark",gen:5,entry:"It protects its pack by unleashing illusions on its foes and getting them confused."},
+{id:530,name:"Excadrill",heightM:0.7,weightKg:40.4,type:"Ground / Steel",gen:5,entry:"It can tunnel through the hardest of rocks using its drill-like claws, leaving tunnels behind it."},
+{id:534,name:"Conkeldurr",heightM:1.4,weightKg:87.0,type:"Fighting",gen:5,entry:"It has such great strength that it can make light work of smashing thick concrete blocks with its concrete pillars."},
+{id:579,name:"Reuniclus",heightM:1.0,weightKg:20.1,type:"Psychic",gen:5,entry:"Its brain never stops growing. It cradles its head in its arms to protect it from harm."},
+{id:612,name:"Haxorus",heightM:1.8,weightKg:105.5,type:"Dragon",gen:5,entry:"Although it has a gentle nature, if angered, it will use its axe-like tusks to fell even steel towers."},
+{id:635,name:"Hydreigon",heightM:1.8,weightKg:160.0,type:"Dark / Dragon",gen:5,entry:"Its two arm heads have tiny brains, but the brain in its main head can think all on its own."},
+{id:637,name:"Volcarona",heightM:1.6,weightKg:46.0,type:"Bug / Fire",gen:5,entry:"Once feared as a deity capable of bringing about the destruction of the world in a sea of fire."},
+{id:643,name:"Reshiram",heightM:3.2,weightKg:330.0,type:"Dragon / Fire",gen:5,entry:"It is said to be one of the legendary Pokemon that can scorch the world with fire."},
+{id:644,name:"Zekrom",heightM:2.9,weightKg:345.0,type:"Dragon / Electric",gen:5,entry:"It is said to be one of the legendary Pokemon that can turn the world to ash with lightning."},
+{id:658,name:"Greninja",heightM:1.5,weightKg:40.0,type:"Water / Dark",gen:6,entry:"It creates throwing stars out of compressed water. When it spins and throws them, they can split a tree trunk in two."},
+{id:663,name:"Talonflame",heightM:1.2,weightKg:24.5,type:"Fire / Flying",gen:6,entry:"In battle, it breathes fire and attacks relentlessly with wings that are spread wide like a blazing fan."},
+{id:681,name:"Aegislash",heightM:1.7,weightKg:53.0,type:"Steel / Ghost",gen:6,entry:"Its sword form, which boasts overwhelming offensive power, transforms into a shield form to take a defensive stance."},
+{id:700,name:"Sylveon",heightM:1.0,weightKg:23.5,type:"Fairy",gen:6,entry:"It senses its Trainer's feelings through its ribbonlike feelers and protects them from harm."},
+{id:706,name:"Goodra",heightM:2.0,weightKg:150.5,type:"Dragon",gen:6,entry:"Its body is enveloped in a gooey, gloppy substance. It loves to wrap its body around things."},
+{id:713,name:"Avalugg",heightM:2.0,weightKg:505.0,type:"Ice",gen:6,entry:"It moves by sliding on its slick belly. The crevasses covering its body let it grip the ground with its sharp edges."},
+{id:716,name:"Xerneas",heightM:3.0,weightKg:215.0,type:"Fairy",gen:6,entry:"Legends say it can share eternal life. It slept for a thousand years in the form of a tree before its revival."},
+{id:717,name:"Yveltal",heightM:5.8,weightKg:203.0,type:"Dark / Flying",gen:6,entry:"When its life comes to an end, it absorbs the life energy of every living thing and turns into a cocoon."},
+{id:724,name:"Decidueye",heightM:1.6,weightKg:36.6,type:"Grass / Ghost",gen:7,entry:"It silently glides through the night sky and pierces its target with arrow quills before it even feels the attack."},
+{id:727,name:"Incineroar",heightM:1.8,weightKg:83.0,type:"Fire / Dark",gen:7,entry:"Although its drop-kicks are deadly enough to shatter blocks of ice, it never uses them on weaker opponents."},
+{id:730,name:"Primarina",heightM:1.8,weightKg:44.0,type:"Water / Fairy",gen:7,entry:"It controls its balloons by humming an aria. They envelop its foes and explode with a tremendous boom."},
+{id:748,name:"Toxapex",heightM:0.7,weightKg:14.5,type:"Poison / Water",gen:7,entry:"It battles by trapping prey with its eight legs, which are tipped with highly poisonous spines."},
+{id:778,name:"Mimikyu",heightM:0.2,weightKg:0.7,type:"Ghost / Fairy",gen:7,entry:"Its actual appearance is unknown. The tattered rag it wears is said to hide a dreadful, secret form."},
+{id:784,name:"Kommo-o",heightM:1.6,weightKg:78.2,type:"Dragon / Fighting",gen:7,entry:"It builds up energy by rattling the scales on its tail. The more energy it stores, the louder the scales rattle."},
+{id:791,name:"Solgaleo",heightM:3.4,weightKg:230.0,type:"Psychic / Steel",gen:7,entry:"Said to live in another world, this Legendary Pokemon is known as the beast that devours the sun."},
+{id:792,name:"Lunala",heightM:4.0,weightKg:120.0,type:"Psychic / Ghost",gen:7,entry:"Said to live in another world, this Legendary Pokemon is known as the beast that calls the moon."},
+{id:802,name:"Marshadow",heightM:0.7,weightKg:22.2,type:"Fighting / Ghost",gen:7,entry:"It hides in the shadows of others, mimicking their movements to gauge their abilities before challenging them."},
+{id:812,name:"Rillaboom",heightM:2.1,weightKg:90.0,type:"Grass",gen:8,entry:"It beats its drum to send shock waves at its enemies, jumbling their senses and making their legs give out."},
+{id:815,name:"Cinderace",heightM:1.4,weightKg:33.0,type:"Fire",gen:8,entry:"It kicks embers from its fireball at opponents at speeds approaching 100 miles per hour."},
+{id:818,name:"Inteleon",heightM:1.9,weightKg:45.2,type:"Water",gen:8,entry:"It takes aim at its enemies' weak points with water blasted from the tip of its finger at sniper-rifle velocity."},
+{id:823,name:"Corviknight",heightM:2.2,weightKg:75.0,type:"Flying / Steel",gen:8,entry:"Acting as taxis, these Pokemon carry passengers across the skies, their wings transformed into a flat, sturdy form."},
+{id:887,name:"Dragapult",heightM:3.0,weightKg:50.0,type:"Dragon / Ghost",gen:8,entry:"It fires baby Dreepy from its horns at speeds of up to Mach 3, faster than the speed of sound."},
+{id:849,name:"Toxtricity",heightM:1.6,weightKg:40.0,type:"Electric / Poison",gen:8,entry:"It expels electricity from the poison sacs on its chest, stimulating its body and giving it explosive power."},
+{id:890,name:"Eternatus",heightM:20.0,weightKg:950.0,type:"Poison / Dragon",gen:8,entry:"This is the life-form that gave rise to the Dynamax phenomenon. It is rumored to have come from another world."},
+{id:888,name:"Zacian",heightM:2.8,weightKg:110.0,type:"Fairy",gen:8,entry:"Said to be a deity that has long watched over the people of Galar, this Pokemon was the king of an ancient kingdom."},
+{id:858,name:"Hatterene",heightM:2.1,weightKg:5.1,type:"Psychic / Fairy",gen:8,entry:"If its territory is invaded, it goes into a rage and chases off intruders with strikes from its long, thin arms."},
+{id:906,name:"Sprigatito",heightM:0.4,weightKg:4.1,type:"Grass",gen:9,entry:"Its fluffy fur is similar in composition to plants. It loves to bathe in the sun."},
+{id:911,name:"Skeledirge",heightM:1.6,weightKg:326.5,type:"Fire / Ghost",gen:9,entry:"It sings to console any creature that's lost its life to an enemy. It carries fallen Pokemon on its back to the afterlife."},
+{id:914,name:"Quaquaval",heightM:1.8,weightKg:61.9,type:"Water / Fighting",gen:9,entry:"As it dances with elegant kicks, the feathers on its head and chest let off rainbow-colored sparkles."},
+{id:908,name:"Meowscarada",heightM:1.5,weightKg:31.2,type:"Grass / Dark",gen:9,entry:"It conceals sharp claws inside the rose petals on its hands. It approaches at speeds upward of 60 mph before attacking."},
+{id:959,name:"Tinkaton",heightM:0.7,weightKg:11.2,type:"Fairy / Steel",gen:9,entry:"It swings its huge hammer, made from accumulated treasures, with ease and can knock a dump truck flying."},
+{id:979,name:"Annihilape",heightM:1.2,weightKg:56.0,type:"Fighting / Ghost",gen:9,entry:"Endless fury at being made to suffer humiliation by its Trainers eventually transformed this Pokemon into a vengeful spirit."},
+{id:998,name:"Baxcalibur",heightM:2.1,weightKg:210.0,type:"Dragon / Ice",gen:9,entry:"This savage dragon Pokemon freezes the moisture in the air to create blades of ice that it then fires at foes."},
+{id:1000,name:"Gholdengo",heightM:1.2,weightKg:30.0,type:"Steel / Ghost",gen:9,entry:"Formed when a Gimmighoul's accumulated coins reached one thousand, this Pokemon is said to bring its owner good fortune."},
+{id:1007,name:"Koraidon",heightM:2.5,weightKg:303.0,type:"Fighting / Dragon",gen:9,entry:"This Pokemon runs on overflowing, ceaseless energy. It's said to be a being from a distant past."},
+{id:1008,name:"Miraidon",heightM:3.5,weightKg:240.0,type:"Electric / Dragon",gen:9,entry:"This Pokemon has the ability to transform into a vehicle form. It's said to be a being from a distant future."},
+{id:970,name:"Glimmora",heightM:1.5,weightKg:45.0,type:"Rock / Poison",gen:9,entry:"It buries its shining seeds in the ground. When stepped on, the seeds burst, releasing a cloud of toxic spores."}
+];
+
+let current = null;
+let score = 0, total = 0, wrongCount = 0;
+let unit = "metric";
+
+document.getElementById("pool-size").textContent = DEX.length;
+
+function spriteUrl(p){
+  return "https://cdn.jsdelivr.net/gh/PokeAPI/sprites@master/sprites/pokemon/other/official-artwork/" + p.id + ".png";
+}
+
+function formatHeight(p){
+  if (unit === "metric") return p.heightM.toFixed(1) + " m";
+  const totalInches = p.heightM * 39.3701;
+  const feet = Math.floor(totalInches / 12);
+  const inches = Math.round(totalInches % 12);
+  return feet + "'" + inches + '"';
+}
+
+function formatWeight(p){
+  if (unit === "metric") return p.weightKg.toFixed(1) + " kg";
+  return (p.weightKg * 2.20462).toFixed(1) + " lbs";
+}
+
+function refreshStats(){
+  document.getElementById("stat-height").textContent = formatHeight(current);
+  document.getElementById("stat-weight").textContent = formatWeight(current);
+}
+
+function reveal(){
+  const img = document.getElementById("poke-img");
+  const placeholder = document.getElementById("poke-placeholder");
+  const nameEl = document.getElementById("poke-name");
+  placeholder.style.display = "none";
+  img.style.display = "block";
+  requestAnimationFrame(function(){
+    img.style.opacity = "1";
+    img.style.transform = "scale(1.05)";
+  });
+  nameEl.textContent = current.name;
+  nameEl.style.opacity = "1";
+}
+
+function pickPokemon(){
+  current = DEX[Math.floor(Math.random()*DEX.length)];
+  wrongCount = 0;
+  refreshStats();
+  const img = document.getElementById("poke-img");
+  img.src = spriteUrl(current);
+  img.style.display = "none";
+  img.style.opacity = "0";
+  img.style.transform = "scale(1)";
+  document.getElementById("poke-placeholder").style.display = "block";
+  const nameEl = document.getElementById("poke-name");
+  nameEl.textContent = " ";
+  nameEl.style.opacity = "0";
+  document.getElementById("dex-entry").textContent = current.entry;
+  document.getElementById("hint-row").style.display = "none";
+  document.getElementById("feedback").textContent = "";
+  document.getElementById("feedback").style.color = "var(--text-secondary)";
+  document.getElementById("guess-input").value = "";
+}
+
+function normalize(s){ return s.trim().toLowerCase(); }
+
+document.getElementById("guess-form").addEventListener("submit", function(e){
+  e.preventDefault();
+  const input = document.getElementById("guess-input");
+  const guess = normalize(input.value);
+  const feedback = document.getElementById("feedback");
+  if (!guess) return;
+  if (guess === normalize(current.name)){
+    score++;
+    total++;
+    document.getElementById("score").textContent = score;
+    document.getElementById("total").textContent = total;
+    feedback.style.color = "var(--text-success)";
+    feedback.textContent = "Correct! It's " + current.name + ".";
+    reveal();
+    setTimeout(pickPokemon, 1800);
+  } else {
+    wrongCount++;
+    feedback.style.color = "var(--text-danger)";
+    feedback.textContent = "Not quite, try again.";
+    const hintRow = document.getElementById("hint-row");
+    const hintText = document.getElementById("hint-text");
+    if (wrongCount === 1){
+      hintRow.style.display = "flex";
+      hintText.textContent = "Type: " + current.type;
+    } else if (wrongCount === 2){
+      hintText.textContent = "Type: " + current.type + " | Gen " + current.gen;
+    } else if (wrongCount >= 3){
+      total++;
+      document.getElementById("total").textContent = total;
+      feedback.textContent = "The answer was " + current.name + ".";
+      reveal();
+      setTimeout(pickPokemon, 2200);
+    }
+  }
+  input.value = "";
+  input.focus();
+});
+
+document.getElementById("skip-btn").addEventListener("click", function(){
+  pickPokemon();
+});
+
+document.getElementById("unit-btn").addEventListener("click", function(){
+  unit = unit === "metric" ? "imperial" : "metric";
+  document.getElementById("unit-label").textContent = unit === "metric" ? "Metric" : "Imperial";
+  refreshStats();
+});
+
+pickPokemon();
+</script>
+</body>
+</html>
